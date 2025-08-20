@@ -1,85 +1,130 @@
 const listsContainer = document.querySelector(".todo__lists-container");
 const addListBtn = document.querySelector(".todo__add-list");
 const listNameInput = document.querySelector(".todo__input-list");
+const lists = []; // Array of lists. [ { name: "List 1", tasks: [{...}] }, { name: "List 2", tasks: [{name: "Task 1", done: false}] } ]
+
+// Data Management Functions
+function saveData() {
+    localStorage.setItem("todo-lists", JSON.stringify(lists));
+}
+
+function loadData() {
+    const savedLists = JSON.parse(localStorage.getItem("todo-lists")) || [];
+    lists.length = 0; // Clear the current lists array
+    lists.push(...savedLists);
+}
 
 function createList(name) {
+    const newList = {
+        name: name,
+        tasks: []
+    };
+    lists.push(newList);
+    saveData();
+}
+
+function removeList(index) {
+    lists.splice(index, 1);
+    saveData();
+}
+
+function addTaskToList(listIndex, taskName) {
+    const task = {
+        name: taskName,
+        done: false
+    };
+    lists[listIndex].tasks.push(task);
+    saveData();
+}
+
+function removeTaskFromList(listIndex, taskIndex) {
+    lists[listIndex].tasks.splice(taskIndex, 1);
+    saveData();
+}
+
+function toggleTaskDone(listIndex, taskIndex) {
+    lists[listIndex].tasks[taskIndex].done = !lists[listIndex].tasks[taskIndex].done;
+    saveData();
+}
+
+// UI Functions
+function clearListsContainer() {
+    listsContainer.innerHTML = ""; // Clear the container
+}
+
+function renderLists() {
+    clearListsContainer();
+    lists.forEach((list, index) => {
+        renderList(list, index);
+    });
+}
+
+function renderList(list, listIndex) {
+    // Create the list block
     const listBlock = document.createElement("div");
     listBlock.classList.add("todo__list-block");
-
-    const header = document.createElement("div");
-    header.classList.add("todo__list-header");
-
-    const title = document.createElement("h3");
-    title.classList.add("todo__list-title");
-    title.textContent = name;
-
-    const deleteListBtn = document.createElement("button");
-    deleteListBtn.classList.add("todo__delete-list");
-    deleteListBtn.textContent = "×";
-
-    header.appendChild(title);
-    header.appendChild(deleteListBtn);
-
-    const row = document.createElement("div");
-    row.classList.add("todo__row");
-
-    const taskInput = document.createElement("input");
-    taskInput.type = "text";
-    taskInput.classList.add("todo__input");
-    taskInput.placeholder = "Додайте завдання";
-
-    const addTaskBtn = document.createElement("button");
-    addTaskBtn.classList.add("todo__add");
-    addTaskBtn.textContent = "Add";
-
-    row.appendChild(taskInput);
-    row.appendChild(addTaskBtn);
-
-    const ul = document.createElement("ul");
-    ul.classList.add("todo__list");
-
-    listBlock.appendChild(header);
-    listBlock.appendChild(row);
-    listBlock.appendChild(ul);
+    listBlock.innerHTML = `
+        <div class="todo__list-header">
+            <h3 class="todo__list-title">${list.name}</h3>
+            <button class="todo__delete-list">×</button>
+        </div>
+        <div class="todo__row">
+            <input type="text" class="todo__input" placeholder="Додайте завдання">
+            <button class="todo__add">Add</button>
+        </div>
+        <ul class="todo__list"></ul>
+    `;
     listsContainer.appendChild(listBlock);
 
+    // Add event listeners for the list
+    const deleteListBtn = listBlock.querySelector(".todo__delete-list");
+    deleteListBtn.addEventListener("click", () => {
+        removeList(listIndex);
+        renderLists();
+    });
+
+    const taskInput = listBlock.querySelector(".todo__input");
+    const addTaskBtn = listBlock.querySelector(".todo__add");
     addTaskBtn.addEventListener("click", () => {
         if (taskInput.value.trim() === "") {
             alert("Будь ласка введіть завдання!");
             return;
         }
+
+        addTaskToList(listIndex, taskInput.value);
+        renderLists();
+    });
+
+    // Add tasks to the list
+    list.tasks.forEach((task, taskIndex) => {
+        const ul = listBlock.querySelector(".todo__list");
         const li = document.createElement("li");
         li.classList.add("todo__item");
-        li.textContent = taskInput.value;
-
-        const deleteBtn = document.createElement("span");
-        deleteBtn.classList.add("todo__delete");
-
-        const img = document.createElement("img");
-        img.src = "img/close.svg";
-        img.alt = "Delete task";
-        img.classList.add("todo__delete-icon");
-
-        deleteBtn.appendChild(img);
-        li.appendChild(deleteBtn);
+        li.innerHTML = `
+            <span>${task.name}</span>
+            <span class="todo__delete">
+                <img src="img/close.svg" alt="Delete task" class="todo__delete-icon">
+            </span>
+        `;
         ul.appendChild(li);
 
-        taskInput.value = "";
-        saveData();
-    });
-
-    ul.addEventListener("click", (e) => {
-        if (e.target.classList.contains("todo__item")) {
-            e.target.classList.toggle("todo__item--checked");
-        } else if (e.target.closest(".todo__delete")) {
-            e.target.closest(".todo__item").remove();
+        // Check if the task is done
+        if (task.done) {
+            li.classList.add("todo__item--checked");
         }
-        saveData();
-    });
 
-    deleteListBtn.addEventListener("click", () => {
-        listBlock.remove();
-        saveData();
+        // Add event listener for deleting the task
+        const deleteTaskBtn = li.querySelector(".todo__delete-icon");
+        deleteTaskBtn.addEventListener("click", () => {
+            removeTaskFromList(listIndex, taskIndex);
+            renderLists();
+        });
+
+        // Add event listener for toggling task done state
+        li.addEventListener("click", () => {
+            toggleTaskDone(listIndex, taskIndex);
+            li.classList.toggle("todo__item--checked");
+        });
     });
 }
 
@@ -88,62 +133,10 @@ addListBtn.addEventListener("click", () => {
         alert("Введіть назву листа!");
         return;
     }
-    createList(listNameInput.value);
-    listNameInput.value = "";
-    saveData();
+
+    createList(listNameInput.value.trim());
+    renderLists();
 });
 
-function saveData() {
-    localStorage.setItem("todoMultipleData", listsContainer.innerHTML);
-}
-
-function showLists() {
-    listsContainer.innerHTML = localStorage.getItem("todoMultipleData") || "";
-    listsContainer.querySelectorAll(".todo__list-block").forEach((block) => {
-        const taskInput = block.querySelector(".todo__input");
-        const addTaskBtn = block.querySelector(".todo__add");
-        const ul = block.querySelector(".todo__list");
-        const deleteListBtn = block.querySelector(".todo__delete-list");
-
-        addTaskBtn.addEventListener("click", () => {
-            if (taskInput.value.trim() === "") {
-                alert("Будь ласка введіть завдання!");
-                return;
-            }
-            const li = document.createElement("li");
-            li.classList.add("todo__item");
-            li.textContent = taskInput.value;
-
-            const deleteBtn = document.createElement("span");
-            deleteBtn.classList.add("todo__delete");
-
-            const img = document.createElement("img");
-            img.src = "img/close.svg";
-            img.alt = "Delete task";
-            img.classList.add("todo__delete-icon");
-
-            deleteBtn.appendChild(img);
-            li.appendChild(deleteBtn);
-            ul.appendChild(li);
-
-            taskInput.value = "";
-            saveData();
-        });
-
-        ul.addEventListener("click", (e) => {
-            if (e.target.classList.contains("todo__item")) {
-                e.target.classList.toggle("todo__item--checked");
-            } else if (e.target.closest(".todo__delete")) {
-                e.target.closest(".todo__item").remove();
-            }
-            saveData();
-        });
-
-        deleteListBtn.addEventListener("click", () => {
-            block.remove();
-            saveData();
-        });
-    });
-}
-
-showLists();
+loadData();
+renderLists();
