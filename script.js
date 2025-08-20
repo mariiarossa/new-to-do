@@ -136,6 +136,7 @@ addListBtn.addEventListener("click", () => {
 
     createList(listNameInput.value.trim());
     renderLists();
+    listNameInput.value = ""; 
 });
 
 loadData();
